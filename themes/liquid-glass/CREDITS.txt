@@ -1,0 +1,15 @@
+Landscape wallpapers from Wikimedia Commons featured pictures.
+
+01-yosemite-tunnel-view.jpg: Tunnel View, Yosemite Valley, Yosemite NP - Diliff.jpg by Diliff, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Tunnel_View,_Yosemite_Valley,_Yosemite_NP_-_Diliff.jpg
+02-half-dome.jpg: Half Dome with Eastern Yosemite Valley.jpg by Thomas Wolf, www.foto-tw.de, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Half_Dome_with_Eastern_Yosemite_Valley.jpg
+04-matterhorn.jpg: Matterhorn, March 2019 (01).jpg by Liridon, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Matterhorn,_March_2019_(01).jpg
+05-matterhorn-sunset.jpg: Matterhorn sunset 2016 (Unsplash).jpg by Sam Ferrara samferrara, CC0, https://commons.wikimedia.org/wiki/File:Matterhorn_sunset_2016_(Unsplash).jpg
+06-lofoten.jpg: Lofoten, Norway (Unsplash).jpg by Johannes Groll followhansi, CC0, https://commons.wikimedia.org/wiki/File:Lofoten,_Norway_(Unsplash).jpg
+07-austnesfjorden.jpg: Cirrus front over Austnesfjorden, Austvågøya, Lofoten, Norway, 2015 April.jpg by Ximonic (Simo Räsänen), CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Cirrus_front_over_Austnesfjorden,_Austv%C3%A5g%C3%B8ya,_Lofoten,_Norway,_2015_April.jpg
+08-a-i-lofoten.jpg: Å i Lofoten III (perspective corrected).jpg by Jules Henze, CC BY 2.0, https://commons.wikimedia.org/wiki/File:%C3%85_i_Lofoten_III_(perspective_corrected).jpg
+09-pangong-tso.jpg: Pangong Tso 2.jpg by KennyOMG, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Pangong_Tso_2.jpg
+10-lake-bled.jpg: SloveeniaBled.jpg by Abrget47j, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:SloveeniaBled.jpg
+11-peyto-lake.jpg: Peyto Lake-Banff NP-Canada.jpg by Tobias Alt, Tobi 87, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Peyto_Lake-Banff_NP-Canada.jpg
+12-rockies-morning.jpg: Rockies in the morning.jpg by Sergey Pesterev, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Rockies_in_the_morning.jpg
+13-ama-dablam.jpg: Himalayas, Ama Dablam, Nepal.jpg by Vyacheslav Argenberg, CC BY 4.0, https://commons.wikimedia.org/wiki/File:Himalayas,_Ama_Dablam,_Nepal.jpg
+14-gokyo-lake.jpg: Gokyo Ri summit, Gokyo Lake, Nepal, Himalayas.jpg by Vyacheslav Argenberg, CC BY 4.0, https://commons.wikimedia.org/wiki/File:Gokyo_Ri_summit,_Gokyo_Lake,_Nepal,_Himalayas.jpg

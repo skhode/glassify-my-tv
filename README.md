@@ -390,7 +390,7 @@ The **TV** needs Android 8.0 (API 26) or newer: `minSdk` is a compile-time floor
 |---|---|
 | **Configure** | Dock order, hidden apps, Live TV app, 4 to 7 tiles per row, reduced motion. All in [`config.xml`](launcher/app/src/main/res/values/config.xml) |
 | **Settings on the TV** | Hold OK on the Settings pill for Launcher settings: tiles per row, animations, advanced effects |
-| **Themes** | Background, wallpaper and layout from a `config.json` pushed over Wi-Fi, no rebuild. Five ship in [`themes/`](themes/) |
+| **Themes** | Background, wallpaper and layout from a `config.json` pushed over Wi-Fi, no rebuild. Six ship in [`themes/`](themes/), including the tvOS-style `liquid-glass` |
 | **24 languages** | Follows the TV's language, with a fully mirrored right-to-left layout for Hebrew |
 | **App library** | Optional: browse every installed app and add or remove Home shortcuts. See [the app library guide](docs/app-library.md) |
 | **Module cards** | Any TV app can offer its own tile; you approve each one once. See [`docs/modules.md`](docs/modules.md) |

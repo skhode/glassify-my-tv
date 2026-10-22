@@ -19,6 +19,7 @@ powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.50 th
 | `dussehra/` | Festive skin for Dussehra (ends 21 Oct 2026): a marigold toran, a faint gold rangoli, a diya for Wi-Fi, a bell for Inputs, a marigold for Settings and a petal shower |
 | `scenes/` | 14 dark illustrated landscapes in `wallpapers/`, a new one every hour; drawn from code by `tools/scenes_wallpapers.py` |
 | `six-columns/` | Six smaller tiles per row and one grid row visible under the dock |
+| `liquid-glass/` | tvOS 26 style: 13 landscape photos (Wikimedia Commons, credits in `CREDITS.txt`), a six-app dock alone on screen, milky glass dock and top pills, and tvOS focus (the app grows and lifts, no frame). Wants 2 GB of RAM (true-colour wallpapers) |
 
 ## Keys
 
@@ -74,6 +75,9 @@ is ignored, and a file that doesn't parse is ignored as a whole, so a theme can 
 | `race_calendar` | list of races | F1 race-weekend mode: from 12 hours before a weekend's first session until 4 hours after the race starts, a panel under the clock shows the next session with a countdown (or the live one) and the weekend's session times in the TV's time zone. Write it with `tools/race_calendar.py <theme folder>`, which fetches the season from the free Jolpica API; the launcher itself never goes online |
 | `home_idle_clock_minutes` | 0 to 1440 | Minutes Home may sit untouched before it shows the clock screensaver (a thin clock and date drifting over a slow glow, as the system "Clock" screensaver does). Any key returns to Home. It starts only from Home, never over Live TV or an app; 0 is off (default) |
 | `cinematic_home` | bool | Cinematic top shelf: the focused dock app's artwork, softened, fills the top of the screen in its colour, with a larger name, "Last opened" (apps opened from Home), dock position dots, a focus glow in the app's colour and a translucent dock band; off by default |
+| `liquid_glass` | bool | tvOS 26 look: the dock band and the resting top bar pills become milky glass over a blurred copy of the wallpaper with a rim lit from the top left, a soft shade keeps the clock readable, the focused tile grows 16% and lifts on its own shadow with no highlight frame, tilts the way focus moved (its artwork sliding a little further), dips under OK, and holding OK picks it up to move. Takes the place of `dock_frost` and `focus_outline`; needs a wallpaper for the blur (`false` by default) |
+| `dock_frost` | bool | The dock band as frosted glass over a blurred copy of the wallpaper, with a smoky tint (`false` by default) |
+| `focus_outline` | bool | The focus highlight as a crisp white outline with a soft shadow, on a spring without overshoot (`false` by default) |
 | `ambient_glow` | bool | The glow behind the dock in the focused app's colour (`true` by default); `false` keeps only `background_color` or the wallpaper, e.g. for a calm photo background |
 
 ## Wallpapers
