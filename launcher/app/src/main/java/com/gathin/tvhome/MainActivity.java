@@ -47,6 +47,7 @@ import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -117,6 +118,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private FrameLayout root;
     private WallpaperPlayer wallpaperPlayer;
     private GlassView glass;
+    /** config.xml focus_outline: outline highlight on a critically damped spring. */
+    private boolean focusOutline;
+    /** config.xml liquid_glass: Liquid Glass dock, pills and focus. */
+    private boolean liquidGlass;
+    /** The arrow that moved focus last, for the tilt; 0 once used, so a restored focus does not tilt. */
+    private int lastDpad;
+    /** True from a long press that picked a tile up until that press's OK is released. */
+    private boolean swallowOkUp;
+    /** rows_below_dock 0 with a dock row: the grid stays hidden under the dock until it scrolls (tvOS's dock alone). */
+    private boolean dockAlone;
+    private boolean gridAtRest = true;
     private View ambient;
     private TextView heroName;
     /** The top shelf: heroName, plus the cinematic shelf's "Last opened" line and dock position dots. */
@@ -332,6 +344,35 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
         if (festive) glass.setAccent(festival.accentColor());
+        liquidGlass = cfg.liquidGlass;
+        if (liquidGlass && cfg.wallpaperEnabled && !cfg.wallpapers.isEmpty()) {
+            // A soft shade behind the clock and the pills, as tvOS darkens the top of a bright picture, so the thin
+            // greeting and date stay readable over snow and cloud.
+            View scrim = new View(this);
+            scrim.setBackground(new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0x73000000, 0x33000000, 0x00000000}));
+            scrim.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            root.addView(scrim, wallpaperPlayer.layers(), new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, (int) (getResources().getDisplayMetrics().heightPixels * 0.38f)));
+        }
+        focusOutline = cfg.focusOutline || liquidGlass;   // Liquid Glass moves on the same critically damped spring
+        if (liquidGlass) {
+            glass.setLiquid(true);
+            // tvOS has no highlight frame: the focused tile alone grows and lifts (AppAdapter). The glass view stays
+            // in place for the code that positions it, but is never drawn.
+            glass.setVisibility(View.GONE);
+            // No hairline type at couch distance (tvOS HIG): the clock and the shelf name one weight up, the small
+            // greeting, date and AM/PM brighter.
+            android.graphics.Typeface regular = getResources().getFont(R.font.outfit_regular);
+            ((TextView) findViewById(R.id.clock)).setTypeface(regular);
+            ((TextView) findViewById(R.id.heroName)).setTypeface(regular);
+            ((TextView) findViewById(R.id.date)).setTypeface(getResources().getFont(R.font.outfit_medium));
+            ((TextView) findViewById(R.id.date)).setTextColor(0xE0FFFFFF);
+            ((TextView) findViewById(R.id.greeting)).setTextColor(0xD9FFFFFF);
+            ((TextView) findViewById(R.id.ampm)).setTextColor(0xE0FFFFFF);
+        }
+        else if (focusOutline) glass.setOutline(true);
         ambient = findViewById(R.id.ambient);
         // The glow is one bitmap, so its alpha can be applied while drawing it. Otherwise every frame of
         // a fade renders it into a full-screen offscreen buffer first.
@@ -431,7 +472,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onChildViewDetachedFromWindow(@NonNull View v) {
             }
         });
-        if (dockRow) grid.addItemDecoration(new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames));
+        if (dockRow) {
+            DockDecoration dock = new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames);
+            grid.addItemDecoration(dock);
+            if (cfg.liquidGlass) {
+                // Room at the grid's sides for the wider band; the tiles shrink a little to make it.
+                int room = (int) (14 * density);
+                grid.setPadding(grid.getPaddingLeft() + room, grid.getPaddingTop(),
+                        grid.getPaddingRight() + room, grid.getPaddingBottom());
+                DisplayMetrics screen = getResources().getDisplayMetrics();
+                GlassPillDrawable[] pills = glassPills();
+                dock.setLiquid(null, screen.widthPixels, screen.heightPixels);
+                wallpaperPlayer.setFrostListener(blurred -> {
+                    dock.setLiquid(blurred, screen.widthPixels, screen.heightPixels);
+                    for (GlassPillDrawable pill : pills) pill.setFrost(blurred, screen.widthPixels, screen.heightPixels);
+                    grid.invalidate();
+                });
+            } else if (cfg.dockFrost) {
+                DisplayMetrics screen = getResources().getDisplayMetrics();
+                wallpaperPlayer.setFrostListener(blurred -> {
+                    dock.setFrost(blurred, screen.widthPixels, screen.heightPixels);
+                    grid.invalidate();
+                });
+            }
+        }
         if (animations) {
             int enterAnim = reducedMotion ? R.anim.tile_enter_reduced : R.anim.tile_enter;
             float enterDelay = reducedMotion ? 0f : 0.06f;
@@ -447,6 +511,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
         // rows_below_dock grid rows under it; the rest of the grid stays below until you press Down.
         int rowsBelowDock = cfg.rowsBelowDock;
+        dockAlone = rowsBelowDock == 0 && dockRow;
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
@@ -476,6 +541,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                boolean atRest = rv.computeVerticalScrollOffset() == 0;
+                if (dockAlone && atRest != gridAtRest) {
+                    gridAtRest = atRest;
+                    for (int i = 0; i < rv.getChildCount(); i++) {
+                        View item = rv.getChildAt(i);
+                        if (rv.getChildAdapterPosition(item) < COLUMNS) continue;
+                        item.animate().alpha(tileAlpha(rv.getChildAdapterPosition(item)))
+                                .setDuration(animations ? (reducedMotion ? 100 : 220) : 0).start();
+                    }
+                }
                 if (!glassShown) return;
                 glassTargetY -= dy;
                 glassScrollShift -= dy;
@@ -497,7 +572,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            if (reducedMotion) {
+            if (focusOutline && !reducedMotion) {
+                // A remote press carries no momentum, so no overshoot: critically damped, settling in about 0.3 s
+                // (tvOS's "response 0.3, damping 1.0"; stiffness = (2π / response)²).
+                s.setSpring(new SpringForce().setStiffness(440f).setDampingRatio(1f));
+                s.setMinimumVisibleChange(1f);
+            } else if (reducedMotion) {
                 // Stiff and almost critically damped: settles in a few frames instead of oscillating,
                 // and stops once the highlight is within 1.5 px of its tile.
                 s.setSpring(new SpringForce().setStiffness(1400f).setDampingRatio(0.95f));
@@ -889,6 +969,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            int k = event.getKeyCode();
+            if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT
+                    || k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN) lastDpad = k;
+        }
         if (handleSettingsKey(event)) return true;
         if (!reordering) return super.dispatchKeyEvent(event);
         if (dockEditing) return dispatchDockEdit(event);
@@ -897,6 +982,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         boolean ok = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
                 || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
         boolean back = code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE;
+        if (ok && swallowOkUp) {
+            if (!down) swallowOkUp = false;
+            return true;
+        }
         if (movingKey != null) {
             switch (code) {
                 case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -953,6 +1042,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         reordering = true;
         orderAtStart = adapter.movableKeys();
         glass.setAccent(REORDER_ACCENT);
+        if (liquidGlass) {
+            // Reordering needs the plain blue frame to show where the carried tile is.
+            glass.setLiquid(false);
+            glass.setAccent(REORDER_ACCENT);
+            glass.setVisibility(View.VISIBLE);
+            glass.setAlpha(1f);
+            refitGlass();
+        }
         btnReorder.setActivated(true);
         return true;
     }
@@ -1024,6 +1121,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         refocusAfterLayout(slot);
     }
 
+    @Override
+    public boolean onTileLongPress(int position) {
+        if (reordering || position >= adapter.movableCount() || !beginReorder()) return false;
+        pickUp(position);
+        swallowOkUp = true;   // the release of this same press would otherwise put the tile straight down
+        Toast.makeText(this, R.string.move_hint, Toast.LENGTH_LONG).show();
+        return true;
+    }
+
     private void pickUp(int pos) {
         if (pos >= adapter.movableCount()) return;   // the "Default home" tile stays put
         movingKey = adapter.keyAt(pos);
@@ -1044,12 +1150,69 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    /**
+     * tvOS parallax on arrival: the tile (and its highlight) leans a few degrees the way focus moved and springs back
+     * with a small wobble, while its artwork slides a little further and settles more slowly, so the logo reads as
+     * a layer above the card.
+     */
+    private void tilt(View card) {
+        int key = lastDpad;
+        lastDpad = 0;
+        float rx = 0f, ry = 0f, dx = 0f, dy = 0f;
+        if (key == KeyEvent.KEYCODE_DPAD_RIGHT) { ry = 5f; dx = 6f * density; }
+        else if (key == KeyEvent.KEYCODE_DPAD_LEFT) { ry = -5f; dx = -6f * density; }
+        else if (key == KeyEvent.KEYCODE_DPAD_DOWN) { rx = -4f; dy = 4f * density; }
+        else if (key == KeyEvent.KEYCODE_DPAD_UP) { rx = 4f; dy = -4f * density; }
+        else return;
+        float camera = 8000f * density;
+        for (View v : new View[]{card, glass}) {
+            v.setCameraDistance(camera);
+            settle(v, ry != 0f ? DynamicAnimation.ROTATION_Y : DynamicAnimation.ROTATION_X, ry != 0f ? ry : rx,
+                    300f, 0.45f);
+        }
+        View art = card.findViewById(R.id.banner);
+        if (art != null && art.getVisibility() == View.VISIBLE) {
+            settle(art, dx != 0f ? DynamicAnimation.TRANSLATION_X : DynamicAnimation.TRANSLATION_Y,
+                    dx != 0f ? dx : dy, 180f, 0.6f);
+        }
+    }
+
+    /** Puts the property at from and springs it back to 0. */
+    private static void settle(View v, DynamicAnimation.ViewProperty property, float from, float stiffness, float damping) {
+        SpringAnimation spring = new SpringAnimation(v, property, 0f);
+        spring.getSpring().setStiffness(stiffness).setDampingRatio(damping);
+        spring.setStartValue(from);
+        spring.start();
+    }
+
+    /**
+     * Liquid Glass resting backgrounds for the top bar pills; focused and activated keep pill_bg's white and blue.
+     * Returned so the wallpaper's frosted copy can reach them.
+     */
+    private GlassPillDrawable[] glassPills() {
+        int[] ids = {R.id.btnInputs, R.id.btnWifi, R.id.btnSettings};
+        GlassPillDrawable[] out = new GlassPillDrawable[ids.length];
+        for (int i = 0; i < ids.length; i++) {
+            View pill = findViewById(ids[i]);
+            out[i] = new GlassPillDrawable(pill, density);
+            android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+            Drawable plain = getDrawable(R.drawable.pill_bg);
+            states.addState(new int[]{android.R.attr.state_focused}, plain);
+            states.addState(new int[]{android.R.attr.state_activated}, plain);
+            states.addState(new int[0], out[i]);
+            pill.setBackground(states);
+        }
+        return out;
+    }
+
     /** A tile's alpha: dim unless it is the carried one, or, in edit-dock mode, a dock tile other than the chosen place. */
     private float tileAlpha(int pos) {
         if (movingKey != null) {
             return pos != RecyclerView.NO_POSITION && movingKey.equals(adapter.keyAt(pos)) ? 1f : 0.45f;
         }
         if (dockEditSlot >= 0 && pos >= 0 && pos < COLUMNS && pos != dockEditSlot) return 0.45f;
+        // The row under the dock only peeks in at the bottom edge; it fades in as the grid scrolls up to it.
+        if (dockAlone && gridAtRest && pos >= COLUMNS) return 0f;
         return 1f;
     }
 
@@ -1062,6 +1225,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         reordering = false;
         adapter.setReordering(false);
         glass.setAccent(festive ? festival.accentColor() : 0);
+        if (liquidGlass) {
+            glass.setLiquid(true);
+            glass.setVisibility(View.GONE);
+        }
         btnReorder.setActivated(false);
         List<String> keys = adapter.movableKeys();
         List<String> before = orderAtStart;
@@ -1169,6 +1336,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onTileFocused(int position, View card) {
+        if (liquidGlass && animations && !reducedMotion && card.getWidth() > 0) {
+            glass.shine();
+            tilt(card);
+        }
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
         // Focus restored before the first layout (cold start): the tile has no size yet, and the glass

@@ -57,6 +57,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onLibraryRequested();
         void onLibraryFocused();
         void onLibraryUp();
+
+        /** Long press on a tile in liquid_glass mode: pick it up to move it. Return true when handled. */
+        boolean onTileLongPress(int position);
     }
 
     static final class Entry {
@@ -194,6 +197,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final boolean showHomeSettings;
     /** Calmer motion for weak GPUs (config.xml, reduced_motion): no overshoot, shorter fades. */
     private final boolean reducedMotion;
+    /** liquid_glass: the tile dips under the press before the app opens, as tvOS answers a click. */
+    private final boolean pressDip;
     /** Package to the action its tile sends instead of the start screen (config.xml, launch_actions). */
     private final Map<String, String> launchActions;
     /** Tile names and bundled banners that replace the app's own (config.xml, app_labels and app_banners). */
@@ -212,6 +217,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.showHomeSettings = cfg.showHomeSettingsShortcut;
         this.showLibrary = cfg.appLibrary;
         this.reducedMotion = cfg.reducedMotion;
+        this.pressDip = cfg.liquidGlass && cfg.animations;
         this.rowsBelowDock = cfg.rowsBelowDock;
         this.dockTitle = cfg.dockTitle;
         this.dockRow = cfg.dockRow;
@@ -387,7 +393,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             v.setPadding(v.getPaddingLeft(), pad, v.getPaddingRight(), pad);
         }
         name.setLayoutParams(nameLp);
-        return new Holder(v, listener, animations, advancedEffects, reducedMotion, restNameAlpha);
+        return new Holder(v, listener, animations, advancedEffects, reducedMotion, restNameAlpha, pressDip);
     }
 
     @Override
@@ -435,8 +441,27 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> {
+            if (!pressDip) {
+                launch(e);
+                return;
+            }
+            // Down 6% at once and back, the app opening as it rebounds: the press is seen before the app covers Home.
+            float s = v.getScaleX();
+            v.animate().cancel();
+            v.animate().scaleX(s * 0.94f).scaleY(s * 0.94f).setDuration(reducedMotion ? 50 : 80)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        v.animate().scaleX(s).scaleY(s).setDuration(160).start();
+                        launch(e);
+                    }).start();
+        });
         h.card.setOnLongClickListener(v -> {
+            // tvOS: holding the click on an app lifts it to move. App info stays in the TV's Settings > Apps.
+            int pos = h.getBindingAdapterPosition();
+            if (pressDip && listener != null && pos != RecyclerView.NO_POSITION && listener.onTileLongPress(pos)) {
+                return true;
+            }
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
@@ -580,8 +605,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     float focusScale() {
-        return !animations ? 1f : advancedEffects ? 1.12f : 1.10f;
+        return !animations ? 1f : pressDip ? LIQUID_SCALE : advancedEffects ? 1.12f : 1.10f;
     }
+
+    /** liquid_glass: tvOS grows the focused app well past its neighbours, with no frame around it. */
+    static final float LIQUID_SCALE = 1.16f;
 
     /** A vivid colour sampled from the app's banner (or icon), cached per entry; a card's accent when it set one. */
     int ambientColorAt(int position) {
@@ -654,9 +682,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         final boolean reducedMotion;
         /** Alpha of the name while the tile is not focused (always_show_names). */
         final float restNameAlpha;
+        /** liquid_glass: focus is the tile alone, grown and lifted on a real shadow; no glass frame. */
+        final boolean liquid;
 
         Holder(View v, TileListener listener, boolean animations, boolean advancedEffects,
-               boolean reducedMotion, float restNameAlpha) {
+               boolean reducedMotion, float restNameAlpha, boolean liquid) {
             super(v);
             card = v.findViewById(R.id.card);
             cardBackground = card.getBackground();
@@ -668,6 +698,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             this.advancedEffects = advancedEffects;
             this.reducedMotion = reducedMotion;
             this.restNameAlpha = restNameAlpha;
+            this.liquid = liquid;
 
             final float density = v.getResources().getDisplayMetrics().density;
             card.setOutlineProvider(new ViewOutlineProvider() {
@@ -691,7 +722,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 view.animate().cancel();
                 banner.animate().cancel();
                 name.animate().cancel();
-                float scale = !animations ? 1f : advancedEffects ? 1.12f : 1.10f;
+                float scale = !animations ? 1f : liquid ? LIQUID_SCALE : advancedEffects ? 1.12f : 1.10f;
                 float s = focused ? scale : 1f;
                 if (!animations) {
                     view.setScaleX(1f);
@@ -714,6 +745,17 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     // left there the name overlaps the zoomed tile.
                     // Only on focus: snapping it back to -6dp while it fades out would jump it up over the tile.
                     if (focused) name.setTranslationY(density * 4f);
+                } else if (liquid) {
+                    // Grow and lift on the tile's own outline shadow, settling without overshoot.
+                    view.animate().scaleX(s).scaleY(s)
+                            .translationY(0f)
+                            .translationZ(focused ? 14f * density : 0f)
+                            .setDuration(focused ? 240 : 180)
+                            .setInterpolator(new DecelerateInterpolator(1.6f))
+                            .withLayer().start();
+                    name.animate().alpha(focused ? 1f : restNameAlpha)
+                            .translationY(focused ? density * 4f : -density * 6f)
+                            .setDuration(220).start();
                 } else {
                     view.animate().scaleX(s).scaleY(s)
                             .translationY(focused && advancedEffects ? -4f * density : 0f)

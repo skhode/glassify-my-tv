@@ -20,6 +20,11 @@ import java.util.concurrent.Executors;
 
 /** Displays and rotates a theme's local wallpaper images while Home is visible. */
 final class WallpaperPlayer {
+    /** Gets the frosted copy of each wallpaper as it is shown (dock_frost); called on the main thread. */
+    interface FrostListener {
+        void onFrost(Bitmap blurred);
+    }
+
     private final FrameLayout root;
     private final ImageView image;
     private final List<File> files;
@@ -36,6 +41,10 @@ final class WallpaperPlayer {
     private boolean closed;
     private boolean loading;
     private String displayed = "";
+    private FrostListener frostListener;
+    /** Views this player put at the bottom of root (picture, shade): anything meant to sit just above them goes here. */
+    private int layers;
+    private Bitmap frost;
 
     WallpaperPlayer(Context context, FrameLayout root, Config config) {
         this.root = root;
@@ -60,6 +69,7 @@ final class WallpaperPlayer {
         if (config.wallpaperEnabled && !files.isEmpty()) {
             root.addView(image, 0, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            layers = 1;
             // No shade layer at all when the theme doesn't dim: a full-screen view is overdraw on 1 GB TVs.
             if (config.wallpaperDim > 0) {
                 View shade = new View(context);
@@ -67,6 +77,7 @@ final class WallpaperPlayer {
                 shade.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
                 root.addView(shade, 1, new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                layers = 2;
             }
             showFirst();
         }
@@ -97,6 +108,20 @@ final class WallpaperPlayer {
         }
     }
 
+    /** Asks for a frosted copy of every wallpaper from now on, starting with the one showing. */
+    void setFrostListener(FrostListener listener) {
+        frostListener = listener;
+        if (listener == null) return;
+        if (frost == null && image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable) {
+            frost = Frost.of(((android.graphics.drawable.BitmapDrawable) image.getDrawable()).getBitmap());
+        }
+        if (frost != null) listener.onFrost(frost);
+    }
+
+    int layers() {
+        return layers;
+    }
+
     void start() {
         active = true;
         update();
@@ -123,8 +148,10 @@ final class WallpaperPlayer {
         if (selected == null || selected.getName().equals(displayed)) return;
         File next = selected;
         loading = true;
+        boolean wantFrost = frostListener != null;
         decoder.execute(() -> {
             Bitmap bitmap = decode(next);
+            Bitmap blurred = wantFrost && bitmap != null ? Frost.of(bitmap) : null;
             root.post(() -> {
                 loading = false;
                 if (closed || !active) {
@@ -139,6 +166,10 @@ final class WallpaperPlayer {
                 }
                 image.setImageBitmap(bitmap);
                 displayed = next.getName();
+                if (blurred != null) {
+                    frost = blurred;
+                    if (frostListener != null) frostListener.onFrost(blurred);
+                }
                 if (!displayed.equals(previous) || changed == 0) {
                     preferences.edit().putString("image", displayed)
                             .putLong("changed", System.currentTimeMillis()).apply();

@@ -10,9 +10,9 @@
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
     <string-array name="dock_apps">
         <item>com.netflix.ninja</item>
-        <item>com.amazon.amazonvideo.livingroom</item>
         <item>com.google.android.youtube.tv</item>
-        <item>in.startv.hotstar</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.apple.atve.androidtv.appletv</item>
     </string-array>
     <!-- With fewer dock_apps than columns (or a dock app that is not installed), the free dock slots take
          the first grid apps, so the dock never shows a gap. false leaves them empty (#162); a theme can
@@ -21,12 +21,12 @@
 
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
     <string-array name="hidden_apps">
-        <item>com.mediatek.wwtv.tvcenter</item>
-        <item>com.mitv.gallery</item>
+        <item>com.sony.dtv.tvx</item>
+        <item>com.sony.dtv.tvxlauncher.programguide</item>
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
-    <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
+    <string name="live_tv_package" translatable="false">com.sony.dtv.tvx</string>
 
     <!-- Some TVs give their Live TV app no leanback entry point at all, so `live_tv_package` above
          resolves to nothing (TCL Android TV 9 on China-market sets is one). This action is then sent
@@ -191,6 +191,22 @@
          only background_color or the wallpaper behind everything. Can also be set with "ambient_glow": false in a
          theme's config.json. -->
     <bool name="ambient_glow">true</bool>
+
+    <!-- The dock band as frosted glass: a blurred copy of the wallpaper behind it, lightened, with a bright top
+         edge, as on tvOS. Needs a wallpaper; without one the band stays translucent. Can also be set with
+         "dock_frost": true in a theme's config.json. -->
+    <bool name="dock_frost">false</bool>
+
+    <!-- The focus highlight as a crisp white outline with a soft shadow under the lifted tile, instead of the
+         glow slab drawn over it, and a critically damped spring so it moves without overshoot. Can also be set
+         with "focus_outline": true in a theme's config.json. -->
+    <bool name="focus_outline">false</bool>
+
+    <!-- tvOS 26 Liquid Glass: the dock band and the resting top bar pills become clear glass over a blurred copy of
+         the wallpaper, with a lens band along their edges and a rim lit from the top left; the focused tile lifts with
+         a soft shadow, a lit rim and a sweep of light, on a critically damped spring. Takes the place of dock_frost
+         and focus_outline. Can also be set with "liquid_glass": true in a theme's config.json. -->
+    <bool name="liquid_glass">false</bool>
     <!-- Minutes Home may sit untouched before it shows the clock screensaver (ClockActivity); 0 turns it off.
          Unlike the system screensaver this never starts over live TV or an app, which matters on TVs whose
          Live TV window does not keep the screen on (CVTE): there the system screensaver would start in the

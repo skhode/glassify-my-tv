@@ -126,6 +126,12 @@ final class Config {
     final boolean cinematicHome;
     /** The glow in the focused app's colour behind the dock (config.xml, ambient_glow); false keeps the background plain. */
     final boolean ambientGlow;
+    /** The dock band as frosted glass over a blurred copy of the wallpaper (config.xml, dock_frost). */
+    final boolean dockFrost;
+    /** The focus highlight as a crisp outline with a soft lift shadow instead of the glow slab (config.xml, focus_outline). */
+    final boolean focusOutline;
+    /** tvOS 26 Liquid Glass dock, top pills and focus (config.xml, liquid_glass); needs a wallpaper for the blur. */
+    final boolean liquidGlass;
     /** Minutes Home may sit untouched before the clock screensaver (config.xml, home_idle_clock_minutes); 0 is off. */
     final int homeIdleClockMinutes;
 
@@ -138,7 +144,8 @@ final class Config {
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
                    int wallpaperRotationMinutes, int wallpaperDim, String wallpaperOrder, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys,
-                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, int homeIdleClockMinutes) {
+                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, int homeIdleClockMinutes,
+                   boolean dockFrost, boolean focusOutline, boolean liquidGlass) {
         this.inputKeycodes = inputKeycodes;
         this.appKeys = Collections.unmodifiableList(appKeys);
         this.dockApps = Collections.unmodifiableList(dockApps);
@@ -188,6 +195,9 @@ final class Config {
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
         this.cinematicHome = cinematicHome;
         this.ambientGlow = ambientGlow;
+        this.dockFrost = dockFrost;
+        this.focusOutline = focusOutline;
+        this.liquidGlass = liquidGlass;
         this.homeIdleClockMinutes = homeIdleClockMinutes;
     }
 
@@ -238,6 +248,9 @@ final class Config {
         List<String> appKeys = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.app_keys)));
         boolean cinematic = res.getBoolean(R.bool.cinematic_home);
         boolean ambientGlow = res.getBoolean(R.bool.ambient_glow);
+        boolean dockFrost = res.getBoolean(R.bool.dock_frost);
+        boolean focusOutline = res.getBoolean(R.bool.focus_outline);
+        boolean liquidGlass = res.getBoolean(R.bool.liquid_glass);
         int idleClockMinutes = res.getInteger(R.integer.home_idle_clock_minutes);
         boolean applied = false;
 
@@ -287,6 +300,9 @@ final class Config {
             appKeys = stringList(json, "app_keys", appKeys);
             cinematic = bool(json, "cinematic_home", cinematic);
             ambientGlow = bool(json, "ambient_glow", ambientGlow);
+            dockFrost = bool(json, "dock_frost", dockFrost);
+            focusOutline = bool(json, "focus_outline", focusOutline);
+            liquidGlass = bool(json, "liquid_glass", liquidGlass);
             idleClockMinutes = integer(json, "home_idle_clock_minutes", idleClockMinutes, 0, 1440);
         }
         // A theme push or reset invalidates choices made on the TV. On first use, remember the
@@ -347,7 +363,7 @@ final class Config {
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, wallpaperOrder, applied,
                 festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow,
-                Math.max(0, idleClockMinutes));
+                Math.max(0, idleClockMinutes), dockFrost, focusOutline, liquidGlass);
     }
 
     /**
